@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'app_nav.dart';
 import 'home_page.dart';
 import 'planner_page.dart';
 import 'monthly_planner_page.dart';
 import 'weekly_planner_page.dart';
 import 'weekly_checkin_page.dart';
+import 'settings_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -36,6 +38,14 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
+
+  static const int _settingsIndex = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    AppNav.navigateToSettings = () => setState(() => _selectedIndex = _settingsIndex);
+  }
 
   final List<Widget> _pages = [
     const HomePage(),
@@ -106,32 +116,6 @@ class GroupPage extends StatelessWidget {
       ),
       body: const Center(
         child: Text('Group Page'),
-      ),
-    );
-  }
-}
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      body: const Center(
-        child: Text('Settings Page'),
       ),
     );
   }
