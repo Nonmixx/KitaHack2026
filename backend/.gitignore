@@ -1,6 +1,7 @@
 HELP.md
 MEMBER2_README.md
 MEMBER2_EXPLAINED.md
+GOOGLE_AI_SETUP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
