@@ -37,3 +37,6 @@ build/
 ### Firebase credentials - NEVER commit these! ###
 firebase-key.json
 **/firebase-key.json
+
+### Local config with API keys - do not commit ###
+application-local.properties
