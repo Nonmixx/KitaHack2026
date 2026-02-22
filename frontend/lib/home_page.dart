@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'app_nav.dart';
+import 'routes.dart';
 import 'weekly_checkin_page.dart';
 import 'api/planner_api.dart';
 import 'utils/calendar_utils.dart';
 import 'widgets/empty_state_card.dart';
+import 'data/deadline_store.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,11 +18,28 @@ class _HomePageState extends State<HomePage> {
   List<PlannerTask> _tasks = [];
   Deadline? _nearestDeadline;
   bool _loading = true;
+  final Set<String> _demoCompletedIds = {}; // completion for store-sourced tasks
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    deadlineStore.addListener(_onDeadlineStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    deadlineStore.removeListener(_onDeadlineStoreChanged);
+    super.dispose();
+  }
+
+  void _onDeadlineStoreChanged() {
+    if (mounted) _loadData();
+  }
+
+  static String _storeTaskId(DeadlineItem item) {
+    final due = item.dueDate?.millisecondsSinceEpoch ?? 0;
+    return 'store-${item.courseName}|${item.title}|$due';
   }
 
   Future<void> _loadData() async {
@@ -49,8 +68,51 @@ class _HomePageState extends State<HomePage> {
           if (due.isBefore(nearestDue)) nearest = d;
         } catch (_) {}
       }
+      // When API returns no tasks, show all deadlines from store in Today's Tasks
+      List<PlannerTask> displayTasks = tasks;
+      if (displayTasks.isEmpty && deadlineStore.items.isNotEmpty) {
+        displayTasks = deadlineStore.items.map((item) {
+          final dueStr = item.dueDate != null
+              ? '${item.dueDate!.year}-${item.dueDate!.month.toString().padLeft(2, '0')}-${item.dueDate!.day.toString().padLeft(2, '0')}'
+              : null;
+          final id = _storeTaskId(item);
+          return PlannerTask(
+            id: id,
+            title: item.title,
+            course: item.courseName,
+            duration: item.difficulty,
+            completed: _demoCompletedIds.contains(id),
+            dueDate: dueStr,
+            difficulty: item.difficulty,
+            status: null,
+          );
+        }).toList();
+      }
+      // When API returns no deadlines, compute nearest from store
+      if (nearest == null && deadlineStore.items.isNotEmpty) {
+        DateTime? nearestDue;
+        DeadlineItem? nearestItem;
+        for (final item in deadlineStore.items) {
+          if (item.dueDate == null) continue;
+          final d = item.dueDate!;
+          if (d.isBefore(DateTime(now.year, now.month, now.day))) continue;
+          if (nearestDue == null || d.isBefore(nearestDue)) {
+            nearestDue = d;
+            nearestItem = item;
+          }
+        }
+        if (nearestItem != null && nearestDue != null) {
+          nearest = Deadline(
+            id: _storeTaskId(nearestItem),
+            title: nearestItem.title,
+            course: nearestItem.courseName,
+            dueDate: '${nearestDue.year}-${nearestDue.month.toString().padLeft(2, '0')}-${nearestDue.day.toString().padLeft(2, '0')}',
+            type: null,
+          );
+        }
+      }
       if (mounted) setState(() {
-        _tasks = tasks;
+        _tasks = displayTasks;
         _nearestDeadline = nearest;
         _loading = false;
       });
@@ -64,6 +126,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _toggleTask(String taskId, bool completed) async {
+    if (taskId.startsWith('store-')) {
+      setState(() {
+        if (completed) {
+          _demoCompletedIds.add(taskId);
+        } else {
+          _demoCompletedIds.remove(taskId);
+        }
+        _tasks = _tasks.map((t) {
+          if (t.id == taskId) return PlannerTask(id: t.id, title: t.title, course: t.course, duration: t.duration, completed: completed, dueDate: t.dueDate, difficulty: t.difficulty, status: t.status);
+          return t;
+        }).toList();
+      });
+      return;
+    }
     final ok = await PlannerApi.toggleTaskCompletion(taskId, completed);
     if (ok && mounted) _loadData();
   }
@@ -284,7 +360,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Expanded(
                             child: InkWell(
-                              onTap: () {},
+                              onTap: () => Navigator.pushNamed(context, AppRoutes.addDeadline),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 height: 36,
@@ -315,7 +391,7 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: InkWell(
-                              onTap: () {},
+                              onTap: () => Navigator.pushNamed(context, AppRoutes.editDeadlines),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 height: 36,
